@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles, TrendingUp, Layers3 } from "lucide-react";
 import { DEFAULT_HERO_SLIDES } from "@/config/defaults";
+import { withBasePath } from "@/core/assets";
 import { usePlatform } from "@/core/platform-context";
 import { sortByAgeAndBehavior } from "@/core/personalization";
 import { getSetting, type ContentItem, type HeroSlide, type HomeSection } from "@/core/types";
@@ -20,7 +21,7 @@ function HeroSlider({ slides, onCta }: { slides: HeroSlide[]; onCta: (target: st
   if (!slides.length) return null;
   const slide = slides[index % slides.length];
   return (
-    <section className="hero-zone" style={{ backgroundImage: `url('${slide.image}')` }}>
+    <section className="hero-zone" style={{ backgroundImage: `url('${withBasePath(slide.image)}')` }}>
       <div className="hero-overlay" />
       <div className="hero-content">
         <div className="hero-badge"><span>✦</span> {slide.badge}</div>

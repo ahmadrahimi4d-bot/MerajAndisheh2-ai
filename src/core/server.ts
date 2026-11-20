@@ -25,6 +25,7 @@ import {
 } from "@/config/defaults";
 import { fileExtension, formatMeta } from "@/config/registry";
 import { authService, hashPassword, verifyPassword } from "@/core/auth-service";
+import { buildDefaultBootstrap } from "@/core/local-fallback";
 import {
   getSetting,
   type AnalyticsSnapshot,
@@ -283,6 +284,9 @@ async function computeAnalytics(): Promise<AnalyticsSnapshot> {
 }
 
 export async function getBootstrap(): Promise<Bootstrap> {
+  if (process.env.GITHUB_PAGES === "true") {
+    return buildDefaultBootstrap();
+  }
   await ensureSeed();
   const [settingRows, categoryRows, contentRows, pluginRows, languageRows, userRows, logs, analytics] = await Promise.all([
     db.select().from(settingsTable),

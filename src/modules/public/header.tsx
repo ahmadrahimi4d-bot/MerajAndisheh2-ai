@@ -5,6 +5,7 @@ import {
   Bookmark, BrainCircuit, ChevronDown, ChevronLeft, Globe2, Grid2X2, Languages, Menu, Search,
   Sparkles, UserRound, X, LogIn, UserPlus, ShieldCheck,
 } from "lucide-react";
+import { withBasePath } from "@/core/assets";
 import { usePlatform } from "@/core/platform-context";
 import { searchContents } from "@/core/personalization";
 import { getSetting, type PortalLink, type RegistrationField } from "@/core/types";
@@ -117,7 +118,7 @@ export function SiteHeader() {
               <div className="mega-column"><h4>🌳 {t("treeCategories")}</h4>{treeRoots.map((c) => <button key={c.id} onClick={() => { navigate("tree", { portal: "all" }); setMegaOpen(false); }}>{c.icon} {c.label}<ChevronLeft size={13} /></button>)}{treeRoots.slice(0, 4).flatMap((r) => data.categories.filter((c) => c.parentId === r.id).slice(0, 2)).map((c) => <button className="mega-child" key={c.id} onClick={() => { navigate("bank", { portal: "all", filters: { tree: [String(c.id)] } }); setMegaOpen(false); }}>↳ {c.label}</button>)}</div>
               <div className="mega-column"><h4>🧭 موضوعات</h4>{topics.map((c) => <button key={c.id} onClick={() => { navigate("bank", { portal: "all", filters: { topic: [c.key.replace("topic-", "")] } }); setMegaOpen(false); }}>{c.icon} {c.label}<ChevronLeft size={13} /></button>)}</div>
               <div className="mega-column"><h4>📎 {t("allFormats")}</h4>{formats.map((c) => <button key={c.id} onClick={() => { navigate("bank", { portal: "all", filters: { format: [c.key.replace("fmt-", "")] } }); setMegaOpen(false); }}>{c.icon} {c.label}<ChevronLeft size={13} /></button>)}</div>
-              <div className="mega-feature" style={{ backgroundImage: "url('/images/hero.jpg')" }}><div><span>✦</span><h3>بانک محتوای مستند</h3><p>هر محتوا با منبع، سند و قابلیت ردیابی</p><button onClick={() => goTo("bank")}>{t("explore")} ←</button></div></div>
+              <div className="mega-feature" style={{ backgroundImage: `url('${withBasePath("/images/hero.jpg")}')` }}><div><span>✦</span><h3>بانک محتوای مستند</h3><p>هر محتوا با منبع، سند و قابلیت ردیابی</p><button onClick={() => goTo("bank")}>{t("explore")} ←</button></div></div>
             </div>}
           </div>
           <div className="portal-links">{portalLinks.map((link) => {

@@ -1,3 +1,4 @@
+import { withBasePath } from "@/core/assets";
 import type { StoryTheme } from "@/core/types";
 
 export interface StoryOptions {
@@ -96,7 +97,7 @@ export async function generateStory(options: StoryOptions): Promise<string> {
   ctx.fillStyle = theme.accent;
   roundRect(ctx, 72, 72, 936, 12, 6); ctx.fill();
 
-  const image = await loadImage(options.image);
+  const image = await loadImage(withBasePath(options.image));
   ctx.save();
   roundRect(ctx, 72, 150, 936, 700, 36); ctx.clip();
   ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fillRect(72, 150, 936, 700);

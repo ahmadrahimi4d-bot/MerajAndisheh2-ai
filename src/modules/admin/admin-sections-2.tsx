@@ -3,6 +3,7 @@
 import { useState, type ChangeEvent } from "react";
 import { CloudUpload, Download, Globe2, KeyRound, LockKeyhole, ShieldCheck, Trash2, Upload, UserCog, Users as UsersIcon } from "lucide-react";
 import { ADMIN_SECTIONS, CALENDARS, MOTIFS, PLUGIN_DEFINITIONS } from "@/config/registry";
+import { isStaticExportMode } from "@/core/assets";
 import { usePlatform } from "@/core/platform-context";
 import { isUnreachableResponse } from "@/core/local-fallback";
 import { getSetting, type BackupConfig, type LanguageRecord, type PluginRecord, type RegistrationField } from "@/core/types";
@@ -93,24 +94,28 @@ export function BackupsSection() {
   const [importing, setImporting] = useState(false);
   const exportJson = async () => {
     let blob: Blob;
-    try {
-      const response = await fetch("/api/backup-export", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (isUnreachableResponse(response)) throw new Error("offline");
-      if (!response.ok) { showToast("دسترسی به خروجی مجاز نیست"); return; }
-      blob = await response.blob();
-    } catch {
-      const localExport = {
-        product: "Meraj Andisheh Studio Content Bank",
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        settings: data.settings,
-        categories: data.categories,
-        contents: data.contents,
-        plugins: data.plugins,
-        languages: data.languages,
-        users: data.users,
-      };
-      blob = new Blob([JSON.stringify(localExport, null, 2)], { type: "application/json;charset=utf-8" });
+    const makeLocalBlob = () => new Blob([JSON.stringify({
+      product: "Meraj Andisheh Studio Content Bank",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      settings: data.settings,
+      categories: data.categories,
+      contents: data.contents,
+      plugins: data.plugins,
+      languages: data.languages,
+      users: data.users,
+    }, null, 2)], { type: "application/json;charset=utf-8" });
+    if (isStaticExportMode()) {
+      blob = makeLocalBlob();
+    } else {
+      try {
+        const response = await fetch("/api/backup-export", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        if (isUnreachableResponse(response)) throw new Error("offline");
+        if (!response.ok) { showToast("دسترسی به خروجی مجاز نیست"); return; }
+        blob = await response.blob();
+      } catch {
+        blob = makeLocalBlob();
+      }
     }
     const url = URL.createObjectURL(blob); const a = document.createElement("a");
     a.href = url; a.download = `meraj-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);

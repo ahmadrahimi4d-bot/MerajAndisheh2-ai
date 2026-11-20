@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { DEFAULT_AGE_THEMES } from "@/config/defaults";
 import { formatDate, translate } from "@/locales";
 import { readTopicScores, trackTopic } from "@/core/personalization";
+import { buildAppUrl, isStaticExportMode } from "@/core/assets";
 import {
   getLocalBootstrap,
   isUnreachableResponse,
@@ -189,34 +190,51 @@ export function PlatformProvider({ initial, children }: { initial: Bootstrap; ch
 
     syncServerBootstrap(initialRef.current);
 
-    fetch("/api/auth", { cache: "no-store" })
-      .then(async (r) => {
-        if (isUnreachableResponse(r)) throw new Error("unreachable");
-        return r.json();
-      })
-      .then((r) => {
-        setUser(r.user ?? null);
-        setAuthChecked(true);
-      })
-      .catch(() => {
+    if (isStaticExportMode()) {
+      const localData = getLocalBootstrap(initialRef.current);
+      const localRes = runLocalAuth("session", { token: storedToken ?? "" }, localData);
+      queueMicrotask(() => {
+        if (cancelled) return;
         setOfflineMode(true);
-        const localData = getLocalBootstrap(initialRef.current);
         setData(localData);
-        const localRes = runLocalAuth("session", { token: storedToken ?? "" }, localData);
         setUser(localRes.user ?? null);
         setAuthChecked(true);
       });
-
-    if (!sessionStorage.getItem("meraj.visitTracked")) {
-      sessionStorage.setItem("meraj.visitTracked", "1");
-      visitTracked.current = true;
-      fetch("/api/platform", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "trackVisit", payload: { visitorId: id, path: window.location.pathname + window.location.search } }),
-      }).catch(() => {
+      if (!sessionStorage.getItem("meraj.visitTracked")) {
+        sessionStorage.setItem("meraj.visitTracked", "1");
+        visitTracked.current = true;
         runLocalAction("trackVisit", { visitorId: id, path: window.location.pathname + window.location.search }, null, initialRef.current);
-      });
+      }
+    } else {
+      fetch("/api/auth", { cache: "no-store" })
+        .then(async (r) => {
+          if (isUnreachableResponse(r)) throw new Error("unreachable");
+          return r.json();
+        })
+        .then((r) => {
+          setUser(r.user ?? null);
+          setAuthChecked(true);
+        })
+        .catch(() => {
+          setOfflineMode(true);
+          const localData = getLocalBootstrap(initialRef.current);
+          setData(localData);
+          const localRes = runLocalAuth("session", { token: storedToken ?? "" }, localData);
+          setUser(localRes.user ?? null);
+          setAuthChecked(true);
+        });
+
+      if (!sessionStorage.getItem("meraj.visitTracked")) {
+        sessionStorage.setItem("meraj.visitTracked", "1");
+        visitTracked.current = true;
+        fetch("/api/platform", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "trackVisit", payload: { visitorId: id, path: window.location.pathname + window.location.search } }),
+        }).catch(() => {
+          runLocalAction("trackVisit", { visitorId: id, path: window.location.pathname + window.location.search }, null, initialRef.current);
+        });
+      }
     }
     return () => {
       cancelled = true;
@@ -249,6 +267,11 @@ export function PlatformProvider({ initial, children }: { initial: Bootstrap; ch
   }, [activeLanguage, theme, fontStack, settings]);
 
   const refresh = useCallback(async () => {
+    if (isStaticExportMode()) {
+      setOfflineMode(true);
+      setData(getLocalBootstrap(initialRef.current));
+      return;
+    }
     try {
       const response = await fetch("/api/bootstrap", { cache: "no-store" });
       if (isUnreachableResponse(response)) throw new Error("unreachable");
@@ -270,6 +293,16 @@ export function PlatformProvider({ initial, children }: { initial: Bootstrap; ch
   const call = useCallback(async (action: string, payload: Record<string, unknown> = {}, options: { refreshAfter?: boolean; section?: string } = {}) => {
     const bodyPayload = { ...payload };
     if (options.section && !bodyPayload.section) bodyPayload.section = options.section;
+    if (isStaticExportMode()) {
+      setOfflineMode(true);
+      const localRes = runLocalAction(action, bodyPayload, user, data);
+      if (localRes.ok === false) {
+        showToast(String(localRes.error ?? "خطا در انجام عملیات"));
+        throw new Error(String(localRes.error ?? "Action failed"));
+      }
+      setData({ ...localRes.bootstrap });
+      return localRes as Record<string, unknown>;
+    }
     try {
       const response = await fetch("/api/platform", {
         method: "POST",
@@ -311,7 +344,7 @@ export function PlatformProvider({ initial, children }: { initial: Bootstrap; ch
     if (portal && portal !== "all") params.set("portal", portal);
     const q = options.q !== undefined ? options.q : searchQuery;
     if (q && nextView === "bank") params.set("q", q);
-    const url = params.toString() ? `/?${params.toString()}` : "/";
+    const url = buildAppUrl(params.toString());
     if (window.location.pathname + window.location.search !== url) window.history.pushState({}, "", url);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [activePortal, searchQuery]);
@@ -320,6 +353,11 @@ export function PlatformProvider({ initial, children }: { initial: Bootstrap; ch
     setSelectedContent(item);
     trackTopic(item.topic);
     setTopicScores(readTopicScores());
+    if (isStaticExportMode()) {
+      const res = runLocalAction("trackView", { contentId: item.id, visitorId }, user, data);
+      setData({ ...res.bootstrap });
+      return;
+    }
     fetch("/api/platform", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "trackView", payload: { contentId: item.id, visitorId } }),
@@ -362,6 +400,20 @@ export function PlatformProvider({ initial, children }: { initial: Bootstrap; ch
   }, [pendingAction]);
 
   const auth = useCallback(async (action: "login" | "register", payload: Record<string, unknown>) => {
+    if (isStaticExportMode()) {
+      setOfflineMode(true);
+      const localRes = runLocalAuth(action, payload, data);
+      if (!localRes.ok || !localRes.user) return { ok: false, error: localRes.error ?? "خطا" };
+      setUser(localRes.user);
+      setToken(localRes.token ?? null);
+      if (localRes.token) localStorage.setItem("meraj.token", localRes.token);
+      setData({ ...getLocalBootstrap(data) });
+      setLoginOpen(false);
+      const role = localRes.user.role;
+      if (!pendingAction) navigate(role === "visitor" ? "profile" : "admin");
+      showToast(role === "visitor" ? "به حساب کاربری خود خوش آمدید" : "به داشبورد مدیریت خوش آمدید");
+      return { ok: true };
+    }
     try {
       const response = await fetch("/api/auth", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -400,9 +452,13 @@ export function PlatformProvider({ initial, children }: { initial: Bootstrap; ch
   }, [navigate, refresh, showToast, pendingAction, data]);
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) }).catch(() => {
+    if (isStaticExportMode()) {
       runLocalAuth("logout", { token: token ?? "" }, data);
-    });
+    } else {
+      await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) }).catch(() => {
+        runLocalAuth("logout", { token: token ?? "" }, data);
+      });
+    }
     localStorage.removeItem("meraj.token");
     setToken(null); setUser(null); navigate("home"); showToast("خروج انجام شد");
   }, [navigate, showToast, token, data]);

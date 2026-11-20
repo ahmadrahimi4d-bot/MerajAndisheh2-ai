@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { ADMIN_SECTIONS, CATEGORY_KINDS, FORMAT_META, formatMeta, fileExtension } from "@/config/registry";
 import { DEFAULT_AGE_THEMES, DEFAULT_HERO_SLIDES, DEFAULT_HOME_SECTIONS, DEFAULT_PORTAL_LINKS, DEFAULT_STORY_THEMES } from "@/config/defaults";
+import { isStaticExportMode } from "@/core/assets";
 import { usePlatform } from "@/core/platform-context";
 import { isUnreachableResponse, saveLocalUpload } from "@/core/local-fallback";
 import { normalizeText } from "@/core/personalization";
@@ -99,18 +100,23 @@ function ContentSection() {
       });
       const ext = fileExtension(file.name);
       const meta = formatMeta(ext);
-      try {
-        const response = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ name: file.name, dataUrl }) });
-        if (isUnreachableResponse(response)) throw new Error("__LOCAL_UPLOAD__");
-        const result = await response.json();
-        if (!result.ok) throw new Error(String(result.error));
-        setDraft((current) => ({ ...current, fileUrl: String(result.file.url), fileSize: `${ext.toUpperCase()} • ${(file.size / 1024).toFixed(1)} KB`, format: ext, mediaKind: meta.kind }));
-      } catch (err) {
-        if (err instanceof Error && err.message !== "__LOCAL_UPLOAD__" && err.name !== "TypeError" && !err.message.includes("fetch")) {
-          throw err;
-        }
+      if (isStaticExportMode()) {
         const localFile = saveLocalUpload(file.name, dataUrl);
         setDraft((current) => ({ ...current, fileUrl: localFile.url, fileSize: `${ext.toUpperCase()} • ${(file.size / 1024).toFixed(1)} KB`, format: ext, mediaKind: meta.kind }));
+      } else {
+        try {
+          const response = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ name: file.name, dataUrl }) });
+          if (isUnreachableResponse(response)) throw new Error("__LOCAL_UPLOAD__");
+          const result = await response.json();
+          if (!result.ok) throw new Error(String(result.error));
+          setDraft((current) => ({ ...current, fileUrl: String(result.file.url), fileSize: `${ext.toUpperCase()} • ${(file.size / 1024).toFixed(1)} KB`, format: ext, mediaKind: meta.kind }));
+        } catch (err) {
+          if (err instanceof Error && err.message !== "__LOCAL_UPLOAD__" && err.name !== "TypeError" && !err.message.includes("fetch")) {
+            throw err;
+          }
+          const localFile = saveLocalUpload(file.name, dataUrl);
+          setDraft((current) => ({ ...current, fileUrl: localFile.url, fileSize: `${ext.toUpperCase()} • ${(file.size / 1024).toFixed(1)} KB`, format: ext, mediaKind: meta.kind }));
+        }
       }
       setUploadLabel(`${file.name} بارگذاری شد`);
     } catch (error) { showToast(error instanceof Error ? error.message : "خطا در بارگذاری"); setUploadLabel(""); }

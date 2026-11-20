@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { DEFAULT_STORY_THEMES } from "@/config/defaults";
 import { formatMeta } from "@/config/registry";
+import { isStaticExportMode, withBasePath } from "@/core/assets";
 import { usePlatform } from "@/core/platform-context";
 import { generateStory } from "@/core/story";
 import { getSetting, type ContentItem, type StoryTheme } from "@/core/types";
@@ -92,12 +93,13 @@ function FileCard({ item, onDownload }: { item: ContentItem; onDownload: () => v
 function UniversalViewer({ item, onDownload }: { item: ContentItem; onDownload: () => void }) {
   const { t } = usePlatform();
   const [zoom, setZoom] = useState(false);
-  const source = item.externalUrl || item.fileUrl || "";
+  const source = withBasePath(item.externalUrl || item.fileUrl || "");
+  const poster = withBasePath(item.thumbnail);
   if (item.embedCode) return <div className="universal-viewer embed-viewer"><iframe srcDoc={item.embedCode} title={item.title} allowFullScreen /></div>;
   if (item.mediaKind === "game") return <div className="universal-viewer game-viewer">{item.gameKey === "memory" ? <MemoryGame /> : <QuizGame />}</div>;
-  if (item.mediaKind === "video") return <div className="universal-viewer media-viewer">{source ? <video controls poster={item.thumbnail} src={source} /> : <div className="media-fallback">ویدئو پیوست نشده است</div>}<div className="media-caption"><span>🎬 {item.title}</span><span>{item.duration || "ویدئو"}</span></div></div>;
-  if (item.mediaKind === "audio") return <div className="universal-viewer audio-viewer" style={{ backgroundImage: `url('${item.thumbnail}')` }}><div className="audio-panel"><span>🎧 پادکست و فایل صوتی</span><h3>{item.title}</h3><p>{item.summary}</p>{source ? <audio controls src={source} /> : <div className="media-fallback">فایل صوتی پیوست نشده است</div>}</div></div>;
-  if (item.mediaKind === "image") return <div className="universal-viewer image-viewer"><img src={item.fileUrl || item.externalUrl || item.thumbnail} alt={item.title} className={zoom ? "zoomed" : ""} onClick={() => setZoom(!zoom)} /><button className="zoom-button" onClick={() => setZoom(!zoom)}>{zoom ? <ZoomOut size={17} /> : <ZoomIn size={17} />} {zoom ? "کوچک کردن" : "بزرگنمایی"}</button><ImageIcon className="viewer-watermark" size={30} /></div>;
+  if (item.mediaKind === "video") return <div className="universal-viewer media-viewer">{source ? <video controls poster={poster} src={source} /> : <div className="media-fallback">ویدئو پیوست نشده است</div>}<div className="media-caption"><span>🎬 {item.title}</span><span>{item.duration || "ویدئو"}</span></div></div>;
+  if (item.mediaKind === "audio") return <div className="universal-viewer audio-viewer" style={{ backgroundImage: `url('${poster}')` }}><div className="audio-panel"><span>🎧 پادکست و فایل صوتی</span><h3>{item.title}</h3><p>{item.summary}</p>{source ? <audio controls src={source} /> : <div className="media-fallback">فایل صوتی پیوست نشده است</div>}</div></div>;
+  if (item.mediaKind === "image") return <div className="universal-viewer image-viewer"><img src={withBasePath(item.fileUrl || item.externalUrl || item.thumbnail)} alt={item.title} className={zoom ? "zoomed" : ""} onClick={() => setZoom(!zoom)} /><button className="zoom-button" onClick={() => setZoom(!zoom)}>{zoom ? <ZoomOut size={17} /> : <ZoomIn size={17} />} {zoom ? "کوچک کردن" : "بزرگنمایی"}</button><ImageIcon className="viewer-watermark" size={30} /></div>;
   if (item.mediaKind === "pdf") return <div className="universal-viewer pdf-viewer"><div className="pdf-toolbar"><span>📕 نمایشگر درونبرنامهای PDF</span><button onClick={onDownload} disabled={!source}><Download size={15} /> {t("download")}</button></div>{source ? <iframe src={`${source}#view=FitH`} title={item.title} /> : <div className="media-fallback">فایل PDF پیوست نشده است</div>}</div>;
   if (item.mediaKind === "article") return <div className="universal-viewer article-viewer"><span className="eyebrow">ARTICLE · FULL TEXT</span><h2>{item.title}</h2><p className="article-lead">{item.summary}</p>{item.body.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)}<div className="article-figures"><strong>{t("figures")}:</strong> {item.figures.map((f) => <Pill key={f}>{f}</Pill>)}</div></div>;
   if (item.mediaKind === "presentation") return <div className="universal-viewer presentation-viewer"><SlidePreviewer item={item} onDownload={onDownload} /></div>;
@@ -167,13 +169,14 @@ export function ContentDetailModal() {
     if (!item) return;
     if (!ensureAuth("download")) return;
     const directUrl = item.fileUrl || item.externalUrl;
-    if (offlineMode || directUrl?.startsWith("data:")) {
+    if (offlineMode || isStaticExportMode() || directUrl?.startsWith("data:")) {
       if (!directUrl) return;
       void call("recordDownload", { contentId: item.id }, { refreshAfter: false }).catch(() => undefined);
+      const resolvedUrl = withBasePath(directUrl);
       const link = document.createElement("a");
-      link.href = directUrl;
+      link.href = resolvedUrl;
       link.download = `${item.slug || item.id}.${item.format || "bin"}`;
-      if (directUrl.startsWith("http")) link.target = "_blank";
+      if (resolvedUrl.startsWith("http")) link.target = "_blank";
       document.body.appendChild(link); link.click(); link.remove();
       showToast("دانلود فایل آغاز شد");
       return;

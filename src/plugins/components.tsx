@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Copy, MessageCircle, Send, Share2, Star, TrendingUp } from "lucide-react";
+import { buildAppUrl } from "@/core/assets";
 import { usePlatform } from "@/core/platform-context";
 import { isPluginEnabled, pluginConfig } from "@/plugins";
 import type { CommentItem, ContentItem } from "@/core/types";
@@ -96,7 +97,7 @@ export function SocialShare({ item }: { item: ContentItem }) {
   const { data, t, showToast } = usePlatform();
   if (!isPluginEnabled(data, "share")) return null;
   const config = pluginConfig(data, "share", { networks: [] as string[] });
-  const link = typeof window === "undefined" ? "" : `${window.location.origin}/?view=bank&q=${encodeURIComponent(item.title)}`;
+  const link = typeof window === "undefined" ? "" : `${window.location.origin}${buildAppUrl(`view=bank&q=${encodeURIComponent(item.title)}`)}`;
   const share = async (network: string) => {
     if (network === "کپی پیوند" || network === "Copy link") {
       await navigator.clipboard?.writeText(link);

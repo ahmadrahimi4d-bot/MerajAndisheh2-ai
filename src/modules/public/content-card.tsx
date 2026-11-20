@@ -2,6 +2,7 @@
 
 import { Bookmark, Eye, Star, BadgeCheck, Clock3 } from "lucide-react";
 import { formatMeta } from "@/config/registry";
+import { withBasePath } from "@/core/assets";
 import { usePlatform } from "@/core/platform-context";
 import type { ContentItem } from "@/core/types";
 import { Pill } from "@/modules/shared";
@@ -14,7 +15,7 @@ export function ContentCard({ item, compact = false }: { item: ContentItem; comp
   const ageLabel = ageThemes.find((a) => a.id === item.ageGroups[0])?.label.split("(")[0] ?? "";
   return (
     <article className={`content-card ${compact ? "compact" : ""}`} onClick={() => openContent(item)} tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openContent(item); }}>
-      <div className="card-cover" style={{ backgroundImage: `url('${item.thumbnail}')` }}>
+      <div className="card-cover" style={{ backgroundImage: `url('${withBasePath(item.thumbnail)}')` }}>
         <div className="card-cover-overlay" />
         <span className="format-badge" style={{ background: meta.color }}>{meta.icon} {meta.label}</span>
         {item.featured && <span className="featured-badge">✦ ویژه</span>}
